@@ -14,6 +14,10 @@ import { runFundManager } from "@/lib/agents/fund-manager";
 import { getKlines, getTicker24h } from "@/lib/data/binance";
 import { getCoinData } from "@/lib/data/coingecko";
 import { getFearGreedIndex } from "@/lib/data/fear-greed";
+import { computeIndicators } from "@/lib/data/indicators";
+import { getFuturesData } from "@/lib/data/futures";
+import { getCryptoNews } from "@/lib/data/cryptopanic";
+import { getWhaleMovements } from "@/lib/data/whale-alert";
 
 async function fetchAllMarketData(
   market: MarketDetection
@@ -23,7 +27,7 @@ async function fetchAllMarketData(
       getTicker24h(market.symbol),
       getKlines(market.symbol, "1h", 24),
       getKlines(market.symbol, "4h", 30),
-      getKlines(market.symbol, "1d", 30),
+      getKlines(market.symbol, "1d", 210),
       getCoinData(market.coingeckoId),
       getFearGreedIndex(),
     ]);
@@ -58,9 +62,22 @@ async function fetchAllMarketData(
       ? fng.value
       : { value: 50, label: "Neutral" };
 
+  const currentPrice = parseFloat(t.lastPrice);
+  const dailyCandles = candles1d.status === "fulfilled" ? candles1d.value : [];
+  const fourHourCandles = candles4h.status === "fulfilled" ? candles4h.value : [];
+
+  // Phase 2: Enriched data (parallel, all optional)
+  const [indicatorsRes, futuresRes, newsRes, whalesRes] =
+    await Promise.allSettled([
+      Promise.resolve(computeIndicators(dailyCandles, fourHourCandles, currentPrice)),
+      getFuturesData(market.symbol, currentPrice),
+      getCryptoNews(market.symbol.replace("USDT", "")),
+      getWhaleMovements(market.coingeckoId),
+    ]);
+
   return {
     symbol: market.symbol,
-    price: parseFloat(t.lastPrice),
+    price: currentPrice,
     change24h: parseFloat(t.priceChange),
     changePercent24h: parseFloat(t.priceChangePercent),
     high24h: parseFloat(t.highPrice),
@@ -68,8 +85,8 @@ async function fetchAllMarketData(
     volume24h: parseFloat(t.quoteVolume),
     marketCap: cg.marketCap,
     candles1h: candles1h.status === "fulfilled" ? candles1h.value : [],
-    candles4h: candles4h.status === "fulfilled" ? candles4h.value : [],
-    candles1d: candles1d.status === "fulfilled" ? candles1d.value : [],
+    candles4h: fourHourCandles,
+    candles1d: dailyCandles,
     fearGreedIndex: fg.value,
     fearGreedLabel: fg.label,
     coingeckoData: {
@@ -80,6 +97,10 @@ async function fetchAllMarketData(
       totalSupply: cg.totalSupply,
     },
     fetchedAt: new Date().toISOString(),
+    indicators: indicatorsRes.status === "fulfilled" ? indicatorsRes.value : undefined,
+    futures: futuresRes.status === "fulfilled" ? futuresRes.value : undefined,
+    news: newsRes.status === "fulfilled" ? newsRes.value : undefined,
+    whales: whalesRes.status === "fulfilled" ? whalesRes.value : undefined,
   };
 }
 

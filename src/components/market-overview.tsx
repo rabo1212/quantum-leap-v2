@@ -90,6 +90,70 @@ export function MarketOverview({ market, data }: MarketOverviewProps) {
             </p>
           </div>
         </div>
+
+        {/* Technical Indicators Summary */}
+        {data.indicators && (
+          <div className="mt-4 pt-4 border-t border-border/50">
+            <p className="text-xs text-muted-foreground mb-2">기술지표 (실시간 계산)</p>
+            <div className="flex flex-wrap gap-3 text-sm">
+              {data.indicators.rsi14 !== null && (
+                <span className={
+                  data.indicators.rsi14 <= 30 ? "text-buy" :
+                  data.indicators.rsi14 >= 70 ? "text-sell" : "text-muted-foreground"
+                }>
+                  RSI {data.indicators.rsi14.toFixed(1)}
+                </span>
+              )}
+              {data.indicators.macd && (
+                <span className={data.indicators.macd.histogram >= 0 ? "text-buy" : "text-sell"}>
+                  MACD {data.indicators.macd.histogram >= 0 ? "+" : ""}{data.indicators.macd.histogram.toFixed(1)}
+                </span>
+              )}
+              {data.indicators.bollingerBands && (
+                <span className="text-muted-foreground">
+                  BB %B {data.indicators.bollingerBands.percentB.toFixed(2)}
+                </span>
+              )}
+              {data.indicators.goldenCross !== null && (
+                <span className={data.indicators.goldenCross ? "text-buy" : "text-sell"}>
+                  {data.indicators.goldenCross ? "Golden Cross" : "Death Cross"}
+                </span>
+              )}
+              {data.indicators.currentVolumeRatio !== null && (
+                <span className={data.indicators.currentVolumeRatio >= 1.5 ? "text-hold" : "text-muted-foreground"}>
+                  Vol {data.indicators.currentVolumeRatio.toFixed(1)}x
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Futures Data Summary */}
+        {data.futures?.available && (
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <p className="text-xs text-muted-foreground mb-2">파생상품 (Binance Futures)</p>
+            <div className="flex flex-wrap gap-3 text-sm">
+              {data.futures.fundingRate !== null && (
+                <span className={
+                  data.futures.fundingRate > 0.0001 ? "text-sell" :
+                  data.futures.fundingRate < -0.0001 ? "text-buy" : "text-muted-foreground"
+                }>
+                  펀딩비 {(data.futures.fundingRate * 100).toFixed(4)}%
+                </span>
+              )}
+              {data.futures.openInterestUsd !== null && (
+                <span className="text-muted-foreground">
+                  OI {formatNumber(data.futures.openInterestUsd)}
+                </span>
+              )}
+              {data.futures.longShortRatio !== null && (
+                <span className={data.futures.longShortRatio > 1 ? "text-buy" : "text-sell"}>
+                  L/S {data.futures.longShortRatio.toFixed(2)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

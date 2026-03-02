@@ -41,6 +41,78 @@ export interface MarketData {
     totalSupply: number;
   };
   fetchedAt: string;
+  // Enriched data (optional, graceful degradation)
+  indicators?: TechnicalIndicators;
+  futures?: FuturesData;
+  news?: CryptoNews;
+  whales?: WhaleMovement;
+}
+
+// === Enriched Data Types ===
+export interface TechnicalIndicators {
+  rsi14: number | null;
+  rsi14_4h: number | null;
+  macd: { macd: number; signal: number; histogram: number } | null;
+  bollingerBands: {
+    upper: number;
+    middle: number;
+    lower: number;
+    percentB: number;
+  } | null;
+  ema9: number | null;
+  ema21: number | null;
+  ema50: number | null;
+  ema200: number | null;
+  sma20: number | null;
+  sma50: number | null;
+  goldenCross: boolean | null;
+  deathCross: boolean | null;
+  priceVsEma200: string | null;
+  volumeSma20: number | null;
+  currentVolumeRatio: number | null;
+  support: number | null;
+  resistance: number | null;
+}
+
+export interface FuturesData {
+  fundingRate: number | null;
+  fundingRateAnnualized: number | null;
+  nextFundingTime: number | null;
+  openInterest: number | null;
+  openInterestUsd: number | null;
+  longShortRatio: number | null;
+  longPercent: number | null;
+  shortPercent: number | null;
+  available: boolean;
+}
+
+export interface CryptoNews {
+  headlines: Array<{
+    title: string;
+    source: string;
+    publishedAt: string;
+    sentiment: "positive" | "negative" | "neutral" | null;
+  }>;
+  overallSentiment: { positive: number; negative: number; neutral: number };
+  available: boolean;
+}
+
+export interface WhaleMovement {
+  transactions: Array<{
+    amount: number;
+    amountUsd: number;
+    fromType: string;
+    toType: string;
+    timestamp: number;
+  }>;
+  summary: {
+    totalInflow: number;
+    totalOutflow: number;
+    netFlow: "exchange_inflow" | "exchange_outflow" | "neutral";
+    largestTx: number;
+    txCount: number;
+  };
+  available: boolean;
 }
 
 // === Agent Reports ===
