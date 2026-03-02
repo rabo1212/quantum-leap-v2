@@ -1,101 +1,175 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef, useCallback } from "react";
+import { AnalysisResult, AnalysisStage } from "@/types";
+import { SearchBar } from "@/components/search-bar";
+import { AnalysisProgress } from "@/components/analysis-progress";
+import { MarketOverview } from "@/components/market-overview";
+import { AnalystGrid } from "@/components/analyst-grid";
+import { DebatePanel } from "@/components/debate-panel";
+import { TraderStrategyCard } from "@/components/trader-strategy";
+import { RiskCheck } from "@/components/risk-check";
+import { FinalVerdictCard } from "@/components/final-verdict";
+import { HistoryList } from "@/components/history-list";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [history, setHistory] = useState<AnalysisResult[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const startTimeRef = useRef<number>(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const startTimer = useCallback(() => {
+    startTimeRef.current = Date.now();
+    timerRef.current = setInterval(() => {
+      setElapsed(Date.now() - startTimeRef.current);
+    }, 100);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const handleSearch = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      setError(null);
+      setResult(null);
+      setElapsed(0);
+      startTimer();
+
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || `서버 오류 (${res.status})`);
+        }
+
+        const data: AnalysisResult = await res.json();
+        setResult(data);
+        setHistory((prev) => [data, ...prev].slice(0, 10));
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+        );
+      } finally {
+        setIsLoading(false);
+        stopTimer();
+      }
+    },
+    [startTimer, stopTimer]
+  );
+
+  const getSimulatedStage = useCallback((): {
+    stage: AnalysisStage;
+    detail: string;
+    pct: number;
+  } => {
+    const sec = elapsed / 1000;
+    if (sec < 2)
+      return { stage: "detecting", detail: "시장 유형 감지 중...", pct: 5 };
+    if (sec < 5)
+      return {
+        stage: "fetching_data",
+        detail: "실시간 데이터 수집 중...",
+        pct: 15,
+      };
+    if (sec < 20)
+      return {
+        stage: "analyzing",
+        detail: "4명의 분석가가 분석 중... 📊📰🔗🌍",
+        pct: 30,
+      };
+    if (sec < 45)
+      return {
+        stage: "debating",
+        detail: `🐂 vs 🐻 토론 ${Math.min(3, Math.ceil((sec - 20) / 8))}라운드...`,
+        pct: 50 + Math.min(24, (sec - 20) * 1),
+      };
+    if (sec < 55)
+      return {
+        stage: "strategizing",
+        detail: "🦞 트레이더 전략 수립 중...",
+        pct: 80,
+      };
+    if (sec < 65)
+      return {
+        stage: "risk_checking",
+        detail: "🛡️ 리스크 매니저 점검 중...",
+        pct: 88,
+      };
+    return {
+      stage: "final_verdict",
+      detail: "🦞🎖️ 펀드매니저 최종 판정 중...",
+      pct: 95,
+    };
+  }, [elapsed]);
+
+  const simulated = isLoading ? getSimulatedStage() : null;
+
+  return (
+    <main className="min-h-screen px-4 py-8 md:py-16">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <h1 className="text-4xl md:text-5xl font-black mb-2">
+          <span className="text-primary">🦞 QUANTUM LEAP</span>{" "}
+          <span className="text-muted-foreground text-2xl md:text-3xl">
+            v2
+          </span>
+        </h1>
+        <p className="text-muted-foreground">
+          멀티에이전트 AI 팀이 토론하여 크립토를 분석합니다
+        </p>
+      </div>
+
+      {/* Search */}
+      <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+
+      {/* Error */}
+      {error && (
+        <div className="w-full max-w-2xl mx-auto mt-6 p-4 rounded-xl bg-sell/10 border border-sell/30 text-sell text-sm">
+          ❌ {error}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      )}
+
+      {/* Progress */}
+      {isLoading && simulated && (
+        <div className="mt-8">
+          <AnalysisProgress
+            stage={simulated.stage}
+            detail={simulated.detail}
+            progress={simulated.pct}
+            elapsed={elapsed}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {result && !isLoading && (
+        <div className="max-w-4xl mx-auto mt-8 space-y-8">
+          <MarketOverview market={result.market} data={result.marketData} />
+          <AnalystGrid analysts={result.analysts} />
+          <DebatePanel messages={result.debate} />
+          <TraderStrategyCard strategy={result.strategy} />
+          <RiskCheck risk={result.risk} />
+          <FinalVerdictCard verdict={result.verdict} result={result} />
+        </div>
+      )}
+
+      {/* History */}
+      {!isLoading && (
+        <HistoryList analyses={history} onSelect={(r) => setResult(r)} />
+      )}
+    </main>
   );
 }
