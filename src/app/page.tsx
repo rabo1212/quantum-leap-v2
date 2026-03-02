@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { AnalysisResult, AnalysisStage } from "@/types";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { AnalysisResult, AnalysisStage, VirtualPortfolio } from "@/types";
 import { SearchBar } from "@/components/search-bar";
 import { AnalysisProgress } from "@/components/analysis-progress";
 import { MarketOverview } from "@/components/market-overview";
@@ -11,6 +11,7 @@ import { TraderStrategyCard } from "@/components/trader-strategy";
 import { RiskCheck } from "@/components/risk-check";
 import { FinalVerdictCard } from "@/components/final-verdict";
 import { HistoryList } from "@/components/history-list";
+import { PortfolioDashboard } from "@/components/portfolio-dashboard";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,8 +19,26 @@ export default function Home() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [history, setHistory] = useState<AnalysisResult[]>([]);
   const [elapsed, setElapsed] = useState(0);
+  const [portfolio, setPortfolio] = useState<VirtualPortfolio | null>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 포트폴리오 로드
+  const loadPortfolio = useCallback(async () => {
+    try {
+      const res = await fetch("/api/portfolio");
+      if (res.ok) {
+        const data = await res.json();
+        setPortfolio(data.portfolio);
+      }
+    } catch {
+      // KV 연결 안 되면 무시
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPortfolio();
+  }, [loadPortfolio]);
 
   const startTimer = useCallback(() => {
     startTimeRef.current = Date.now();
@@ -58,6 +77,14 @@ export default function Home() {
         const data: AnalysisResult = await res.json();
         setResult(data);
         setHistory((prev) => [data, ...prev].slice(0, 10));
+
+        // 분석 완료 시 오픈 포지션 자동 체크
+        fetch("/api/trades/check", { method: "POST" })
+          .then((r) => r.json())
+          .then((checkData) => {
+            if (checkData.portfolio) setPortfolio(checkData.portfolio);
+          })
+          .catch(() => {});
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
@@ -132,6 +159,14 @@ export default function Home() {
         </p>
       </div>
 
+      {/* Portfolio Dashboard */}
+      {portfolio && (
+        <PortfolioDashboard
+          portfolio={portfolio}
+          onReset={loadPortfolio}
+        />
+      )}
+
       {/* Search */}
       <SearchBar onSearch={handleSearch} isLoading={isLoading} />
 
@@ -162,7 +197,12 @@ export default function Home() {
           <DebatePanel messages={result.debate} />
           <TraderStrategyCard strategy={result.strategy} />
           <RiskCheck risk={result.risk} />
-          <FinalVerdictCard verdict={result.verdict} result={result} />
+          <FinalVerdictCard
+            verdict={result.verdict}
+            result={result}
+            portfolio={portfolio}
+            onTradeExecuted={(p) => setPortfolio(p)}
+          />
         </div>
       )}
 

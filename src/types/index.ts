@@ -132,3 +132,44 @@ export interface ProgressUpdate {
   progress: number;
   timestamp: string;
 }
+
+// === Paper Trading (Phase 3) ===
+export interface VirtualTrade {
+  id: string;
+  analysisId: string;
+  symbol: string;
+  direction: "LONG" | "SHORT";
+  entryPrice: number;
+  entryTime: string;
+  targetPrice: number;
+  stopLoss: number;
+  positionSize: number; // 투자금 (USD)
+  quantity: number; // 수량
+  fees: number; // 수수료 (편도 0.1%)
+  exitPrice?: number;
+  exitTime?: string;
+  exitReason?: "target" | "stoploss" | "manual";
+  status: "open" | "win" | "loss" | "cancelled";
+  pnl?: number; // 수수료 차감 후 순손익
+  pnlPercent?: number;
+}
+
+export interface VirtualPortfolio {
+  initialCapital: number; // $10,000
+  cash: number;
+  totalPnL: number;
+  totalFees: number;
+  tradeCount: number;
+  winCount: number;
+  lossCount: number;
+  winRate: number;
+  survivalRatio: number; // 현재가치/초기자본
+  lastUpdated: string;
+}
+
+export interface PnLSnapshot {
+  date: string;
+  totalValue: number;
+  pnl: number;
+  tradeCount: number;
+}
