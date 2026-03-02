@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAnalysis } from "@/lib/orchestrator";
 
-export const maxDuration = 120;
+export const maxDuration = 60; // Vercel Hobby plan max
 
 // Simple in-memory rate limiting
 const requestLog = new Map<string, number[]>();
